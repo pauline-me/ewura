@@ -33,6 +33,7 @@ interface Station {
   ewura_license: string;
   password: string;
   station_location: string;
+  device_type: 'EFPP' | 'VFD'; // <-- Add device_type field
 }
 
 const dummyData = [
@@ -48,7 +49,8 @@ const dummyData = [
       brand_name: 'MSAWI PETROL STATI...',
       phone: '0715083666',
       email: 'msawipetrol@gmail.com',
-      status: 'active'
+      status: 'active',
+      device_type: 'EFPP' // <-- Add device_type to dummy data
     }]
   },
   {
@@ -61,7 +63,8 @@ const dummyData = [
       brand_name: 'MIANZINI GAPCO SERV...',
       phone: '0652899299',
       email: 'totalenergiesmianzini@gmail.com',
-      status: 'active'
+      status: 'active',
+      device_type: 'VFD' // <-- Add device_type to dummy data
     }]
   },
   // Add more dummy data as needed
@@ -84,25 +87,46 @@ const RegisterEwura: React.FC = () => {
   });
 
   const [newStation, setNewStation] = useState({
+    brand_name: '',
+    efd_serial: '',
+    receipt_code: '',
+    ewura_license: '',
     phone: '',
     email: '',
-    brand_name: '',
     tin: '',
     ward: '',
     region: '',
     district: '',
     station_location: '',
     vrn: '',
-    efd_serial: '',
-    receipt_code: '',
-    ewura_license: '',
     other_efd_serial: '',
     password: '',
+    device_type: 'EFPP', // <-- Initialize device_type
   });
+
+  const [managers, setManagers] = useState<any[]>([]);
+  const [selectedManager, setSelectedManager] = useState<string>('');
+  const [fieldsReadOnly, setFieldsReadOnly] = useState(false);
+
+  // Add this state for manager search
+  const [managerSearch, setManagerSearch] = useState('');
 
   useEffect(() => {
     setTaxpayers(dummyData);
     setLoading(false);
+  }, []);
+
+  // Fetch managers on mount
+  useEffect(() => {
+    const fetchManagers = async () => {
+      try {
+        const res = await apiService.getManagers();
+        if (res.success) setManagers(res.data.managers);
+      } catch (error) {
+        console.error('Error fetching managers:', error);
+      }
+    };
+    fetchManagers();
   }, []);
 
   const fetchTaxpayers = async () => {
@@ -138,24 +162,73 @@ const RegisterEwura: React.FC = () => {
       await apiService.createStation(newStation);
       setShowStationModal(false);
       setNewStation({
+        brand_name: '',
+        efd_serial: '',
+        receipt_code: '',
+        ewura_license: '',
         phone: '',
         email: '',
-        brand_name: '',
         tin: '',
         ward: '',
         region: '',
         district: '',
         station_location: '',
         vrn: '',
-        efd_serial: '',
-        receipt_code: '',
-        ewura_license: '',
         other_efd_serial: '',
         password: '',
+        device_type: 'EFPP', // <-- Reset device_type
       });
       fetchTaxpayers();
     } catch (error) {
       console.error('Error creating station:', error);
+    }
+  };
+
+  // 2. When manager selected, auto-fill form
+  const handleManagerSelect = async (managerId: string) => {
+    setSelectedManager(managerId);
+    if (!managerId) return;
+    try {
+      const res = await apiService.getEwuraRegistrationData(managerId);
+      console.log('Auto-fill data:', res.data);
+      const auto = res.data?.ewuraData?.autoFilled;
+      if (auto) {
+        setNewStation({
+          ...newStation,
+          efd_serial: auto.efdSerialNumber || '',
+          receipt_code: auto.receiptCode || '',
+          ewura_license: auto.ewuraLicenseNo || '',
+          phone: auto.contactPersonPhone|| '',
+          email: auto.contactPersonEmailAddress || '',
+          ward: auto.wardName || '',
+          region: auto.regionName || '',
+          district: auto.districtName || '',
+          station_location: auto.stationLocation || '',   
+        vrn: auto.operatorVrn || '',
+          tin: auto.operatorTin|| '',
+          brand_name: auto.retailStationName || '',
+          // ...add more fields as needed
+        });
+        setFieldsReadOnly(true);
+      }
+    } catch (error) {
+      console.error('Error auto-filling form:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedManager) return;
+    try {
+      await apiService.registerWithManager(selectedManager, {
+        tranId: '1', // or your value
+        brandName: newStation.brand_name,
+        receiptCode: newStation.receipt_code,
+        // ...add other required fields
+      });
+      // Handle success (e.g., show message, reset form)
+    } catch (error) {
+      console.error('Error submitting:', error);
     }
   };
 
@@ -390,8 +463,42 @@ const RegisterEwura: React.FC = () => {
               </div>
             </div>
 
+            {/* Manager Select Dropdown */}
+            <div className="p-6 pt-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Select Manager <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Search manager..."
+                value={managerSearch}
+                onChange={e => setManagerSearch(e.target.value)}
+                className="w-full px-3 py-2 mb-2 border border-gray-300 rounded-lg"
+              />
+              <select
+                value={selectedManager}
+                onChange={async (e) => {
+                  await handleManagerSelect(e.target.value);
+                  setFieldsReadOnly(!!e.target.value);
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+              >
+                <option value="">Select Manager</option>
+                {managers
+                  .filter(m =>
+                    m.displayName?.toLowerCase().includes(managerSearch.toLowerCase()) ||
+                    m.email?.toLowerCase().includes(managerSearch.toLowerCase())
+                  )
+                  .map(manager => (
+                    <option key={manager.id} value={manager.id}>
+                      {manager.displayName}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
             {/* Scrollable Form Body */}
-            <div className="p-6 max-h-[calc(100vh-200px)] overflow-y-auto">
+            <div className="p-6 pt-0 max-h-[calc(100vh-200px)] overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                 {/* Form Fields */}
                 <div>
@@ -401,6 +508,7 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="tel"
                     value={newStation.phone}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, phone: e.target.value })}
                     placeholder="07xxxxxxxx"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -415,6 +523,7 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="email"
                     value={newStation.email}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, email: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                     required
@@ -428,8 +537,9 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={newStation.brand_name}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, brand_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
@@ -441,8 +551,9 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={newStation.tin}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, tin: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
@@ -453,9 +564,10 @@ const RegisterEwura: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    value={newStation.ward}
+                    value={newStation.ward || newStation.ward}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, ward: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
@@ -467,8 +579,9 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={newStation.region}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, region: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
@@ -480,8 +593,9 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={newStation.district}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, district: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
@@ -493,8 +607,9 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={newStation.station_location}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, station_location: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
@@ -505,9 +620,12 @@ const RegisterEwura: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    value={newStation.vrn}
+                    value={
+               newStation.vrn || newStation.operatorVrn
+                      }
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, vrn: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
@@ -519,8 +637,9 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={newStation.efd_serial}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, efd_serial: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
@@ -532,8 +651,9 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={newStation.receipt_code}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, receipt_code: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
@@ -545,25 +665,15 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={newStation.ewura_license}
+                    readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, ewura_license: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
                   />
                 </div>
 
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Other EFD Serial Number 
-                  </label>
-                  <input
-                    type="text"
-                    value={newStation.other_efd_serial}
-                    onChange={(e) => setNewStation({ ...newStation, other_efd_serial: e.target.value })}
-                    placeholder="10TZ100833,10TZ100834,..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  />
-                </div>
-
+                
+{/* 
                 <div className="col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Password <span className="text-red-500">*</span>
@@ -575,7 +685,34 @@ const RegisterEwura: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
                     required
                   />
-                </div>
+                </div> */}
+
+                {/* Device Type Selection */}
+               
+
+                {/* Conditional Fields Based on Device Type */}
+                {newStation.device_type === 'EFPP' && (
+                  <>
+                    
+                  </>
+                )}
+
+                {newStation.device_type === 'VFD' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        VFD Model Number <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newStation.vfd_model || ''}
+                        onChange={(e) => setNewStation({ ...newStation, vfd_model: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 

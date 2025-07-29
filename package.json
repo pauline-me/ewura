@@ -10,6 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.0.0",
+    "@headlessui/react": "^2.2.6",
+    "antd": "^5.26.6",
     "axios-retry": "^4.5.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
@@ -26,6 +29,7 @@
     "pg": "^8.16.3",
     "pg-hstore": "^2.3.4",
     "react": "^18.3.1",
+    "react-data-table-component": "^7.7.0",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.6.3",
     "sequelize": "^6.37.7",

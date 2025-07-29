@@ -34,6 +34,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Users', href: '/users', icon: Users },
+     { name: 'Locations', href: '/locations', icon: MapPin },
+    { name: 'Taxpayer', href: '/taxpayers', icon: Users },
+    { name: 'Stations', href: '/stations', icon: MapPin },
     { name: 'Tanks', href: '/tanks', icon: Fuel },
     { name: 'Tank Monitor', href: '/tank-monitor', icon: Fuel },
     { name: 'EWURA Registration', href: '/register-ewura', icon: Building },
@@ -41,7 +44,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     // { name: 'Alerts', href: '/alerts', icon: AlertTriangle },
     { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Maintenance', href: '/maintenance', icon: Wrench },
-    // { name: 'Stations', href: '/stations', icon: MapPin },
+    
 
     { name: 'Settings', href: '/settings', icon: Settings },
     // { name: 'Company', href: '/company', icon: Building },

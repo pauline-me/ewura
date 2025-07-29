@@ -18,56 +18,65 @@ interface Taxpayer {
   isActive?: boolean; // <-- Add this line
 }
 
-interface Station {
-  id?: string;
-  code: string;
-  name: string;
-  taxpayerId: string;
-  regionId: string;
-  districtId: string;
-  wardId: string;
-  address: string;
-  ewuraLicenseNo: string;
-  operationalHours?: any; // Add as needed
-  email?: string;
-  isActive?: boolean;
-}
-
-export default function Stations() {
+export default function TaxpayerComponent() {
   const [taxpayers, setTaxpayers] = useState<Taxpayer[]>([]);
+  const [businessTypes, setBusinessTypes] = useState<string[]>([]);
   const [regions, setRegions] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<Taxpayer | null>(null);
-  const [form, setForm] = useState<Station>({
-    code: "",
-    name: "",
-    taxpayerId: "",
+  const [form, setForm] = useState<Taxpayer>({
+    tin: "",
+    vrn: "",
+    businessName: "",
+    tradeName: "",
+    businessType: "",
     regionId: "",
     districtId: "",
     wardId: "",
     address: "",
-    ewuraLicenseNo: "",
+    phone: "",
     email: "",
-    // operationalHours: {}, // Add if needed
   });
   const [regionSearch, setRegionSearch] = useState("");
   const [districtSearch, setDistrictSearch] = useState("");
   const [wardSearch, setWardSearch] = useState("");
-  // Add a taxpayer search state
-  const [taxpayerSearch, setTaxpayerSearch] = useState("");
-  const [stations, setStations] = useState<Station[]>([]);
 
   // Fetch all data
   useEffect(() => {
-    fetchStations();
+    fetchTaxpayers();
+    fetchBusinessTypes();
     fetchRegions();
   }, []);
 
-  
-  
+  const fetchTaxpayers = async () => {
+    const res = await apiService.getTaxpayers();
+    // Map snake_case to camelCase
+    const mapped = (res.data?.taxpayers || res.data || []).map((t: any) => ({
+      id: t.id,
+      tin: t.tin,
+      vrn: t.vrn,
+      businessName: t.business_name,
+      tradeName: t.trade_name,
+      businessType: t.business_type,
+      regionId: t.region_id,
+      districtId: t.district_id,
+      wardId: t.ward_id,
+      address: t.address,
+      phone: t.phone,
+      email: t.email,
+      isActive: t.is_active, // <-- Add this line
+    }));
+    setTaxpayers(mapped);
+  };
+
+  const fetchBusinessTypes = async () => {
+    const res = await apiService.getBusinessTypes();
+    setBusinessTypes(res.data?.businessTypes || []);
+  };
+
   const fetchRegions = async () => {
     const res = await apiService.getRegions();
     setRegions(res.data?.regions || []);
@@ -89,27 +98,6 @@ export default function Stations() {
     }
     const res = await apiService.getWards({ districtId });
     setWards(res.data?.wards || []);
-  };
-
-  const fetchStations = async () => {
-    const res = await apiService.getStations();
-    console.log("Fetched stations:", res.data);
-    // Map snake_case to camelCase if needed
-    const mapped = (res.data?.stations || res.data || []).map((s: any) => ({
-      id: s.id,
-      code: s.code,
-      name: s.name,
-      taxpayerId: s.taxpayer_name,
-      regionId: s.region_id,
-      districtId: s.district_id,
-      wardId: s.ward_id,
-      address: s.address,
-      ewuraLicenseNo: s.ewura_license_no,
-      operationalHours: s.operational_hours,
-      email: s.email,
-      isActive: s.is_active,
-    }));
-    setStations(mapped);
   };
 
   // Update address when region, district, or ward changes
@@ -139,7 +127,7 @@ export default function Stations() {
 
   const handleSearch = async () => {
     if (!search) {
-      fetchStations();
+      fetchTaxpayers();
       return;
     }
     const res = await apiService.searchTaxpayers(search);
@@ -162,55 +150,47 @@ export default function Stations() {
 
   const openModal = (item?: Taxpayer) => {
     setEditItem(item || null);
-    if (item) {
-      setForm({
-        code: "", // You may want to fetch the station code if available
-        name: item.businessName || "",
-        taxpayerId: item.id || "",
-        regionId: item.regionId || "",
-        districtId: item.districtId || "",
-        wardId: item.wardId || "",
-        address: item.address || "",
-        ewuraLicenseNo: "", // You may want to fetch the station license if available
-        email: item.email || "",
-      });
-    } else {
-      setForm({
-        code: "",
-        name: "",
-        taxpayerId: "",
+    setForm(
+      item || {
+        tin: "",
+        vrn: "",
+        businessName: "",
+        tradeName: "",
+        businessType: "",
         regionId: "",
         districtId: "",
         wardId: "",
         address: "",
-        ewuraLicenseNo: "",
+        phone: "",
         email: "",
-      });
-    }
+      }
+    );
     setShowModal(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editItem && editItem.id) {
-      await apiService.updateStation(editItem.id, form);
+      await apiService.updateTaxpayer(editItem.id, form);
     } else {
-      await apiService.createStation(form);
+      await apiService.createTaxpayer(form);
     }
     setShowModal(false);
     setEditItem(null);
     setForm({
-      code: "",
-      name: "",
-      taxpayerId: "",
+      tin: "",
+      vrn: "",
+      businessName: "",
+      tradeName: "",
+      businessType: "",
       regionId: "",
       districtId: "",
       wardId: "",
       address: "",
-      ewuraLicenseNo: "",
+      phone: "",
       email: "",
     });
-    fetchStations();
+    fetchTaxpayers();
   };
 
   // Filtered lists
@@ -223,72 +203,91 @@ export default function Stations() {
   const filteredWards = wards.filter(w =>
     w.name.toLowerCase().includes(wardSearch.toLowerCase())
   );
-  // Filter stations based on search input
-  const filteredStations = stations.filter(
-    s =>
-      s.code.toLowerCase().includes(search.toLowerCase()) ||
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      s.ewuraLicenseNo.toLowerCase().includes(search.toLowerCase()) ||
-      s.address.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Station Management</h1>
+      <h1 className="text-2xl font-bold mb-6">Taxpayers</h1>
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center max-w-md w-full">
-          <SearchIcon className="w-4 h-4 text-gray-400 mr-2" />
+          <SearchIcon className="w-4 h-4 text-black-400 mr-2" />
           <input
             type="text"
-            placeholder="Search stations..."
+            placeholder="Search taxpayers..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+            className="w-full px-3 py-2 border border-black-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
           />
+          {/* Remove manual search button for live search */}
         </div>
         <button
           className="bg-red-600 text-white px-4 py-2 rounded flex items-center"
           onClick={() => openModal()}
         >
           <Plus className="w-4 h-4 mr-1" />
-          Add station
+          Add Taxpayer
         </button>
       </div>
 
-      {/* --- Stations Table --- */}
-      <h2 className="text-xl font-bold mt-10 mb-4">Stations</h2>
-      <table className="min-w-full border mt-2">
-        <thead>
+      {/* Table for taxpayer details */}
+      <table className="w-full">
+        <thead className="bg-black-50">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Code</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Name</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">EWURA License</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">TIN</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">VRN</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Business Name</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Trade Name</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Type</th>
             <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Address</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Taxpayer</th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Actions</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Phone</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Email</th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">Actions</th> {/* Add Actions column */}
           </tr>
         </thead>
         <tbody>
-          {filteredStations.length === 0 ? (
+          {taxpayers.length === 0 ? (
             <tr>
-              <td colSpan={6} className="text-center py-2">No stations to display</td>
+              <td colSpan={9} className="text-center py-2">No records to display</td>
             </tr>
           ) : (
-            filteredStations.map(station => (
-              <tr key={station.id}>
-                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{station.code}</td>
-                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{station.name}</td>
-                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{station.ewuraLicenseNo}</td>
-                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{station.address}</td>
-                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{station.taxpayerId}</td>
-                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider text-center">
+            taxpayers.map(t => (
+              <tr key={t.id}>
+                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{t.tin}</td>
+                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{t.vrn}</td>
+                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{t.businessName}</td>
+                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{t.tradeName}</td>
+                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{t.businessType}</td>
+                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{t.address}</td>
+                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{t.phone}</td>
+                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider">{t.email}</td>
+                <td className="px-6 py-3 text-left text-xs font-medium text-black-500 uppercase tracking-wider text-center space-x-2">
+                  {/* Edit button */}
                   <button
                     className="inline-flex items-center justify-center bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full p-2 transition-colors duration-150"
-                    onClick={() => openModal(station)}
+                    onClick={() => openModal(t)}
                     title="Edit"
                     type="button"
                   >
                     <Pencil className="w-4 h-4" />
+                  </button>
+                  {/* Activate/Deactivate button */}
+                  <button
+                    className={`inline-flex items-center justify-center rounded-full p-2 transition-colors duration-150 ${
+                      t.isActive
+                        ? 'bg-green-100 hover:bg-green-200 text-green-700'
+                        : 'bg-black-100 hover:bg-black-200 text-black-700'
+                    }`}
+                    onClick={async () => {
+                      await apiService.updateTaxpayer(t.id!, { is_active: !t.isActive });
+                      fetchTaxpayers();
+                    }}
+                    title={t.isActive ? "Deactivate" : "Activate"}
+                    type="button"
+                  >
+                    {t.isActive ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
+                      <XCircle className="w-4 h-4" />
+                    )}
                   </button>
                 </td>
               </tr>
@@ -296,47 +295,70 @@ export default function Stations() {
           )}
         </tbody>
       </table>
-      {/* --- End stations table --- */}
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+   <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl relative shadow-lg">
             <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+              className="absolute top-2 right-2 text-black-500 hover:text-black-700"
               onClick={() => setShowModal(false)}
             >
               <X className="w-5 h-5" />
             </button>
-            <h3 className="text-2xl font-bold mb-4">
-              {editItem ? "Edit" : "Add"} Station
+            <h3 className="text-lg font-bold mb-4">
+              {editItem ? "Edit" : "Add"} Taxpayer
             </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
                 <input
-                  name="code"
-                  placeholder="Station Code"
-                  value={form.code}
+                  name="tin"
+                  placeholder="TIN"
+                  value={form.tin}
                   onChange={handleInputChange}
-                  className="border px-4 py-3 rounded text-lg"
+                  className="border px-3 py-2 rounded"
+                  required
+                  disabled={!!editItem}
+                />
+                <input
+                  name="vrn"
+                  placeholder="VRN"
+                  value={form.vrn}
+                  onChange={handleInputChange}
+                  className="border px-3 py-2 rounded"
+                  required
+                  disabled={!!editItem}
+                />
+                <input
+                  name="businessName"
+                  placeholder="Business Name"
+                  value={form.businessName}
+                  onChange={handleInputChange}
+                  className="border px-3 py-2 rounded"
                   required
                 />
                 <input
-                  name="name"
-                  placeholder="Station Name"
-                  value={form.name}
+                  name="tradeName"
+                  placeholder="Trade Name"
+                  value={form.tradeName}
                   onChange={handleInputChange}
-                  className="border px-4 py-3 rounded text-lg"
+                  className="border px-3 py-2 rounded"
                   required
                 />
-                <input
-                  name="ewuraLicenseNo"
-                  placeholder="EWURA License No"
-                  value={form.ewuraLicenseNo}
+                <select
+                  name="businessType"
+                  value={form.businessType}
                   onChange={handleInputChange}
-                  className="border px-4 py-3 rounded text-lg"
+                  className="border px-3 py-2 rounded"
                   required
-                />
+                >
+                  <option value="">Select Business Type</option>
+                  {businessTypes.map(type =>
+                    typeof type === "string"
+                      ? <option key={type} value={type}>{type}</option>
+                      : <option key={type.code} value={type.code}>{type.name}</option>
+                  )}
+                </select>
 
                 {/* Region search and select */}
                 <div className="flex flex-col">
@@ -345,13 +367,13 @@ export default function Stations() {
                     placeholder="Search Region"
                     value={regionSearch}
                     onChange={e => setRegionSearch(e.target.value)}
-                    className="border px-4 py-3 rounded mb-2 text-lg"
+                    className="border px-3 py-2 rounded mb-1"
                   />
                   <select
                     name="regionId"
                     value={form.regionId}
                     onChange={handleInputChange}
-                    className="border px-4 py-3 rounded text-lg"
+                    className="border px-3 py-2 rounded"
                     required
                   >
                     <option value="">Select Region</option>
@@ -368,14 +390,14 @@ export default function Stations() {
                     placeholder="Search District"
                     value={districtSearch}
                     onChange={e => setDistrictSearch(e.target.value)}
-                    className="border px-4 py-3 rounded mb-2 text-lg"
+                    className="border px-3 py-2 rounded mb-1"
                     disabled={!form.regionId}
                   />
                   <select
                     name="districtId"
                     value={form.districtId}
                     onChange={handleInputChange}
-                    className="border px-4 py-3 rounded text-lg"
+                    className="border px-3 py-2 rounded"
                     required
                     disabled={!form.regionId}
                   >
@@ -393,14 +415,14 @@ export default function Stations() {
                     placeholder="Search Ward"
                     value={wardSearch}
                     onChange={e => setWardSearch(e.target.value)}
-                    className="border px-4 py-3 rounded mb-2 text-lg"
+                    className="border px-3 py-2 rounded mb-1"
                     disabled={!form.districtId}
                   />
                   <select
                     name="wardId"
                     value={form.wardId}
                     onChange={handleInputChange}
-                    className="border px-4 py-3 rounded text-lg"
+                    className="border px-3 py-2 rounded"
                     required
                     disabled={!form.districtId}
                   >
@@ -415,15 +437,30 @@ export default function Stations() {
                   name="address"
                   placeholder="Address"
                   value={form.address}
-                  className="border px-4 py-3 rounded col-span-2 bg-gray-100 text-lg"
+                  className="border px-3 py-2 rounded col-span-2 bg-black-100"
                   readOnly
                   required
                 />
+                <input
+                  name="phone"
+                  placeholder="Phone"
+                  value={form.phone}
+                  onChange={handleInputChange}
+                  className="border px-3 py-2 rounded"
+                  required
+                />
+                <input
+                  name="email"
+                  placeholder="Email"
+                  value={form.email}
+                  onChange={handleInputChange}
+                  className="border px-3 py-2 rounded"
+                  required
+                />
               </div>
-
               <button
                 type="submit"
-                className="bg-red-600 text-white px-6 py-3 rounded hover:bg-red-700 w-full text-lg font-semibold mt-4"
+                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 w-full mt-2"
               >
                 {editItem ? "Update" : "Create"}
               </button>

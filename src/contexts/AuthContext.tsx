@@ -4,7 +4,7 @@ import apiService from '../services/api';
 interface User {
   id: string;
   username: string;
-  email: string;
+  deviceSerial: string;
   role: string;
   permissions: Record<string, boolean>;
   status: string;
@@ -13,7 +13,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (deviceSerial: string, password: string) => Promise<boolean>;
   logout: () => void;
   loading: boolean;
 }
@@ -42,43 +42,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const token = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
       
-      if (token) {
-        // First try to use stored user data for immediate UI update
-        if (storedUser) {
-          try {
-            const userData = JSON.parse(storedUser);
-            setUser(userData);
-            setIsAuthenticated(true);
-          } catch (error) {
-            console.error('Error parsing stored user data:', error);
-          }
-        }
-        
-        // Then verify with server and update if needed
+      if (token && storedUser) {
         try {
-          const userData = await apiService.getCurrentUser();
+          const userData = JSON.parse(storedUser);
           setUser(userData);
           setIsAuthenticated(true);
-          localStorage.setItem('user', JSON.stringify(userData));
         } catch (error) {
+          console.error('Error parsing stored user data:', error);
           localStorage.removeItem('token');
           localStorage.removeItem('user');
-          setUser(null);
-          setIsAuthenticated(false);
         }
       }
+      
       setLoading(false);
     };
 
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (deviceSerial: string, password: string): Promise<boolean> => {
     try {
-      const response = await apiService.login(email, password);
-      setUser(response.user);
-      setIsAuthenticated(true);
-      return true;
+      const response = await apiService.login(deviceSerial, password);
+      if (response.data?.user) {
+        setUser(response.data.user);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        setIsAuthenticated(true);
+        return true;
+      }
+      return false;
     } catch (error) {
       console.error('Login error:', error);
       return false;

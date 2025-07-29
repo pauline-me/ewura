@@ -14,6 +14,9 @@ import Reports from './components/Reports';
 import Settings from './components/Settings';
 import Stations from './components/Stations';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Locations from './components/Locations';
+import TaxpayerComponent from './components/Taxpayer';
+import EditTaxpayer from './components/EditTaxpayer';
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
@@ -32,6 +35,11 @@ function AppContent() {
         <Route 
           path="/register-ewura" 
           element={isAuthenticated ? <Layout><RegisterEwura /></Layout> : <Navigate to="/login" />} 
+
+        />
+        <Route 
+          path="/locations" 
+          element={isAuthenticated ? <Layout><Locations /></Layout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/transactions" 
@@ -68,6 +76,14 @@ function AppContent() {
         <Route 
           path="/users" 
           element={isAuthenticated ? <Layout><Users /></Layout> : <Navigate to="/login" />} 
+        />
+         <Route 
+          path="/taxpayers" 
+          element={isAuthenticated ? <Layout><TaxpayerComponent /></Layout> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/taxpayers/:id/edit" 
+          element={isAuthenticated ? <Layout><EditTaxpayer /></Layout> : <Navigate to="/login" />} 
         />
         <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />
         <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} />} />

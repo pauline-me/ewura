@@ -1,64 +1,86 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'http://192.168.1.104:3001/api';
 
 class ApiService {
   private token: string | null = null;
+  private baseUrl = 'http://192.168.1.104:3001/api';
 
   constructor() {
+    // Get token on initialization
     this.token = localStorage.getItem('token');
   }
 
+  // Add method to update token
+  setToken(token: string | null) {
+    this.token = token;
+    if (token) {
+      localStorage.setItem('token', token);
+    } else {
+      localStorage.removeItem('token');
+    }
+  }
+
   private async request(endpoint: string, options: RequestInit = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.token && { Authorization: `Bearer ${this.token}` }),
-      },
-      ...options,
+    const token = localStorage.getItem('token');
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
     };
 
-    const response = await fetch(url, config);
-    
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Request failed');
+    if (token && !endpoint.includes('/auth/login')) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
-    return response.json();
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        ...options,
+        headers: {
+          ...headers,
+          ...options.headers,
+        },
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+          throw new Error('Session expired');
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
+    }
   }
 
   // Auth methods
-  async login(email: string, password: string) {
+  async login(deviceSerial: string, password: string) {
     const response = await this.request('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ deviceSerial, password }),
     });
     
-    this.token = response.token;
-    localStorage.setItem('token', response.token);
-    localStorage.setItem('user', JSON.stringify(response.user));
+    if (response.data?.token) {
+      this.setToken(response.data.token);
+    }
     return response;
   }
 
   async logout() {
-    await this.request('/auth/logout', { method: 'POST' });
-    this.token = null;
-    localStorage.removeItem('token');
+    this.setToken(null);
     localStorage.removeItem('user');
   }
 
-  async getCurrentUser() {
-    return this.request('/auth/me');
-  }
-
-  // Removed duplicate changePassword method for /auth/change-password endpoint
-
-  async updateProfile(username: string, email: string) {
-    return this.request('/auth/profile', {
-      method: 'PUT',
-      body: JSON.stringify({ username, email }),
-    });
-  }
+  // async updateProfile(username: string, deviceSerial: string) {
+  //   return this.request('/auth/profile', {
+  //     method: 'PUT',
+  //     body: JSON.stringify({ username, deviceSerial }),
+  //   });
+  // }
 
   // Users methods
   async getUsers(params?: any) {
@@ -71,7 +93,7 @@ class ApiService {
   }
 
   async createUser(userData: any) {
-    return this.request('/users', {
+    return this.request('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -159,6 +181,29 @@ class ApiService {
 
   async deleteTaxpayer(id: string) {
     return this.request(`/taxpayers/${id}`, { method: 'DELETE' });
+  }
+
+  async setTaxpayerActiveStatus(id: string, isActive: boolean) {
+    return this.request(`/taxpayers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ isActive }),
+    });
+  }
+
+  async getBusinessTypes() {
+    return this.request('/taxpayers/business-types');
+  }
+
+  async getCountries() {
+    return this.request("/locations/countries");
+  }
+  async getRegions() { return this.request("/locations/regions"); }
+  async getDistricts(params?: any) { return this.request(`/locations/districts${params?.regionId ? '?regionId=' + params.regionId : ''}`); }
+  async getWards(params?: any) { return this.request(`/locations/wards${params?.districtId ? '?districtId=' + params.districtId : ''}`); }
+  async getStreets(params?: any) { return this.request(`/locations/streets${params?.wardId ? '?wardId=' + params.wardId : ''}`); }
+
+  async searchTaxpayers(query: string) {
+    return this.request(`/taxpayers/search?query=${encodeURIComponent(query)}`);
   }
 
   // Transactions methods
@@ -266,17 +311,68 @@ class ApiService {
     return this.request(`/stations/${id}`);
   }
 
+
   async createStation(stationData: any) {
+    // Only send allowed fields
+    const {
+      code,
+      name,
+      taxpayerId,
+      regionId,
+      districtId,
+      wardId,
+      address,
+      ewuraLicenseNo,
+      operationalHours,
+      businessType // include if needed
+    } = stationData;
+
     return this.request('/stations', {
       method: 'POST',
-      body: JSON.stringify(stationData),
+      body: JSON.stringify({
+        code,
+        name,
+        taxpayerId,
+        regionId,
+        districtId,
+        wardId,
+        address,
+        ewuraLicenseNo,
+        operationalHours,
+        businessType
+      }),
     });
   }
 
   async updateStation(id: string, stationData: any) {
+    // Only send allowed fields
+    const {
+      code,
+      name,
+      taxpayerId,
+      regionId,
+      districtId,
+      wardId,
+      address,
+      ewuraLicenseNo,
+      operationalHours,
+ 
+    } = stationData;
+
     return this.request(`/stations/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(stationData),
+      body: JSON.stringify({
+        code,
+        name,
+        taxpayerId,
+        regionId,
+        districtId,
+        wardId,
+        address,
+        ewuraLicenseNo,
+        operationalHours,
+        
+      }),
     });
   }
 
@@ -317,8 +413,8 @@ class ApiService {
   }
 
   async changePassword(currentPassword: string, newPassword: string) {
-    return this.request('/settings/password', {
-      method: 'PUT',
+    return this.request('/auth/change-password', {
+      method: 'POST', // <-- Change to POST if backend expects POST
       body: JSON.stringify({ currentPassword, newPassword }),
     });
   }
@@ -344,6 +440,59 @@ class ApiService {
       body: JSON.stringify(settings),
     });
   }
+
+  async createRegion(data: any) {
+    return this.request("/locations/regions", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+  async updateRegion(id: string, data: any) {
+    return this.request(`/locations/regions/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+  async createDistrict(data: any) {
+    return this.request("/locations/districts", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+  async updateDistrict(id: string, data: any) {
+    return this.request(`/locations/districts/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+  async createWard(data: any) {
+    return this.request("/locations/wards", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+  async updateWard(id: string, data: any) {
+    return this.request(`/locations/wards/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async registerWithManager(managerId: string, data: { tranId: string; brandName: string; receiptCode: string }) {
+    return this.request(`/ewura/register-with-manager/${managerId}`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getManagers() {
+    return this.request('/users/managers');
+  }
+
+  async getEwuraRegistrationData(managerId: string) {
+    return this.request(`/ewura/registration-data/${managerId}`);
+  }
 }
 
 export default new ApiService();
+

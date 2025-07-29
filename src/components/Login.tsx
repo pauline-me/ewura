@@ -1,21 +1,50 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { ChevronDown } from 'lucide-react';
+
+// Update the validation function
+const validateDeviceSerial = (serial: string): string[] => {
+  const errors = [];
+  if (!serial) {
+    errors.push("Device serial is required");
+    return errors;
+  }
+
+  // Update regex validation for new format: ADV-ADMIN-001
+  const serialFormat = /^ADV-[A-Z]+-\d{3}$/;
+  if (!serialFormat.test(serial)) {
+    errors.push("Device serial must be in format: ADV-ADMIN-001");
+  }
+  return errors;
+};
 
 const Login: React.FC = () => {
-  const [email, setEmail] = useState('');
+  const [deviceSerial, setDeviceSerial] = useState('');
+  const [deviceSerialErrors, setDeviceSerialErrors] = useState<string[]>([]);
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const { login } = useAuth();
 
+  // Update the onChange handler
+  const handleDeviceSerialChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setDeviceSerial(value);
+    setDeviceSerialErrors(validateDeviceSerial(value));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errors = validateDeviceSerial(deviceSerial);
+    if (errors.length > 0) {
+      setDeviceSerialErrors(errors);
+      return;
+    }
+    
     setLoading(true);
     setError('');
 
     try {
-      const success = await login(email, password);
+      const success = await login(deviceSerial, password);
       if (!success) {
         setError('Invalid credentials. Please try again.');
       }
@@ -67,18 +96,29 @@ const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-black mb-2">
-                Email Address
+              <label htmlFor="device_serial" className="block text-sm font-medium text-black mb-2">
+                Device Serial
               </label>
               <input
-                type="email"
-                id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Please enter your email"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent"
+                type="text"
+                id="device_serial"
+                value={deviceSerial}
+                onChange={handleDeviceSerialChange}
+                placeholder="Enter device serial (e.g. ADV-ADMIN-001)"
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent ${
+                  deviceSerialErrors.length > 0 ? 'border-red-500' : 'border-gray-300'
+                }`}
                 required
               />
+              {deviceSerialErrors.length > 0 && (
+                <div className="mt-1 space-y-1">
+                  {deviceSerialErrors.map((error, index) => (
+                    <p key={index} className="text-sm text-red-600">
+                      {error}
+                    </p>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div>
