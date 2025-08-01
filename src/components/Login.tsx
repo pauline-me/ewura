@@ -9,10 +9,10 @@ const validateDeviceSerial = (serial: string): string[] => {
     return errors;
   }
 
-  // Update regex validation for new format: ADV-ADMIN-001
-  const serialFormat = /^ADV-[A-Z]+-\d{3}$/;
+  // New format: 02TZ994520
+  const serialFormat = /^02[A-Z]{2}\d{6}$/;
   if (!serialFormat.test(serial)) {
-    errors.push("Device serial must be in format: ADV-ADMIN-001");
+    errors.push("Device serial must be in format: 02TZ994520");
   }
   return errors;
 };
@@ -45,6 +45,7 @@ const Login: React.FC = () => {
 
     try {
       const success = await login(deviceSerial, password);
+     
       if (!success) {
         setError('Invalid credentials. Please try again.');
       }
@@ -104,7 +105,7 @@ const Login: React.FC = () => {
                 id="device_serial"
                 value={deviceSerial}
                 onChange={handleDeviceSerialChange}
-                placeholder="Enter device serial (e.g. ADV-ADMIN-001)"
+                placeholder="Enter device serial (e.g. 02TZ994520)"
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent ${
                   deviceSerialErrors.length > 0 ? 'border-red-500' : 'border-gray-300'
                 }`}

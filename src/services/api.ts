@@ -200,7 +200,11 @@ class ApiService {
   async getRegions() { return this.request("/locations/regions"); }
   async getDistricts(params?: any) { return this.request(`/locations/districts${params?.regionId ? '?regionId=' + params.regionId : ''}`); }
   async getWards(params?: any) { return this.request(`/locations/wards${params?.districtId ? '?districtId=' + params.districtId : ''}`); }
-  async getStreets(params?: any) { return this.request(`/locations/streets${params?.wardId ? '?wardId=' + params.wardId : ''}`); }
+  async getStreets(params?: any) {
+    // Supports: GET /api/locations/streets and GET /api/locations/streets?wardId=...
+    const query = params?.wardId ? `?wardId=${params.wardId}` : '';
+    return this.request(`/locations/streets${query}`);
+  }
 
   async searchTaxpayers(query: string) {
     return this.request(`/taxpayers/search?query=${encodeURIComponent(query)}`);
@@ -318,13 +322,9 @@ class ApiService {
       code,
       name,
       taxpayerId,
-      regionId,
-      districtId,
-      wardId,
+      streetId,
       address,
       ewuraLicenseNo,
-      operationalHours,
-      businessType // include if needed
     } = stationData;
 
     return this.request('/stations', {
@@ -333,13 +333,9 @@ class ApiService {
         code,
         name,
         taxpayerId,
-        regionId,
-        districtId,
-        wardId,
+        streetId,
         address,
         ewuraLicenseNo,
-        operationalHours,
-        businessType
       }),
     });
   }
@@ -350,13 +346,9 @@ class ApiService {
       code,
       name,
       taxpayerId,
-      regionId,
-      districtId,
-      wardId,
+      streetId,
       address,
       ewuraLicenseNo,
-      operationalHours,
- 
     } = stationData;
 
     return this.request(`/stations/${id}`, {
@@ -365,13 +357,9 @@ class ApiService {
         code,
         name,
         taxpayerId,
-        regionId,
-        districtId,
-        wardId,
+        streetId,
         address,
         ewuraLicenseNo,
-        operationalHours,
-        
       }),
     });
   }
@@ -478,10 +466,12 @@ class ApiService {
     });
   }
 
-  async registerWithManager(managerId: string, data: { tranId: string; brandName: string; receiptCode: string }) {
+  async registerWithManager(managerId: string, data: { receiptCode: string }) {
     return this.request(`/ewura/register-with-manager/${managerId}`, {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        receiptCode: data.receiptCode,
+      }),
     });
   }
 
@@ -491,6 +481,28 @@ class ApiService {
 
   async getEwuraRegistrationData(managerId: string) {
     return this.request(`/ewura/registration-data/${managerId}`);
+  }
+
+  
+  async getStreet(id: string) {
+    // Supports: GET /api/locations/streets/{id}
+    return this.request(`/locations/streets/${id}`);
+  }
+
+  async createStreet(streetData: { code: string; name: string; wardId: string }) {
+    // Supports: POST /api/locations/streets
+    return this.request('/locations/streets', {
+      method: 'POST',
+      body: JSON.stringify(streetData),
+    });
+  }
+
+  async updateStreet(id: string, streetData: { name?: string; code?: string; wardId?: string }) {
+    // Supports: PUT /api/locations/streets/{id}
+    return this.request(`/locations/streets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(streetData),
+    });
   }
 }
 

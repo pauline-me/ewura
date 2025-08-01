@@ -40,8 +40,11 @@ const dummyData = [
   {
     id: '1',
     tin: '100770962',
-    vrn: '', // Add empty string instead of undefined
-    email: '', // Add empty string instead of undefined
+    vrn: '',
+    phone: '0715083666',
+    email: 'msawipetrol@gmail.com',
+    licence_trns: 'LIC-001',
+    status: 'active',
     stations: [{
       id: '1',
       ewura_license: 'PRL-2011-094',
@@ -50,12 +53,17 @@ const dummyData = [
       phone: '0715083666',
       email: 'msawipetrol@gmail.com',
       status: 'active',
-      device_type: 'EFPP' // <-- Add device_type to dummy data
+      device_type: 'EFPP'
     }]
   },
   {
     id: '2',
     tin: '156238007',
+    vrn: '',
+    phone: '0652899299',
+    email: 'totalenergiesmianzini@gmail.com',
+    licence_trns: 'LIC-002',
+    status: 'active',
     stations: [{
       id: '2',
       ewura_license: 'PRL-2016-198',
@@ -64,7 +72,7 @@ const dummyData = [
       phone: '0652899299',
       email: 'totalenergiesmianzini@gmail.com',
       status: 'active',
-      device_type: 'VFD' // <-- Add device_type to dummy data
+      device_type: 'VFD'
     }]
   },
   // Add more dummy data as needed
@@ -75,7 +83,7 @@ const RegisterEwura: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showTaxpayerModal, setShowTaxpayerModal] = useState(false);
   const [showStationModal, setShowStationModal] = useState(false);
-  const [selectedTaxpayer, setSelectedTaxpayer] = useState<Taxpayer | null>(null);
+
   const [searchTerm, setSearchTerm] = useState('');
   
   const [newTaxpayer, setNewTaxpayer] = useState({
@@ -92,16 +100,13 @@ const RegisterEwura: React.FC = () => {
     receipt_code: '',
     ewura_license: '',
     phone: '',
-    email: '',
     tin: '',
     ward: '',
     region: '',
     district: '',
     station_location: '',
     vrn: '',
-    other_efd_serial: '',
-    password: '',
-    device_type: 'EFPP', // <-- Initialize device_type
+    device_type: 'EFPP',
   });
 
   const [managers, setManagers] = useState<any[]>([]);
@@ -158,8 +163,18 @@ const RegisterEwura: React.FC = () => {
   };
 
   const handleCreateStation = async () => {
+    if (!selectedManager) {
+      alert("Please select a manager.");
+      return;
+    }
+    if (!newStation.receipt_code) {
+      alert("Please enter the Receipt Code.");
+      return;
+    }
     try {
-      await apiService.createStation(newStation);
+      await apiService.registerWithManager(selectedManager, {
+        receiptCode: newStation.receipt_code,
+      });
       setShowStationModal(false);
       setNewStation({
         brand_name: '',
@@ -167,20 +182,20 @@ const RegisterEwura: React.FC = () => {
         receipt_code: '',
         ewura_license: '',
         phone: '',
-        email: '',
         tin: '',
         ward: '',
         region: '',
         district: '',
         station_location: '',
         vrn: '',
-        other_efd_serial: '',
-        password: '',
-        device_type: 'EFPP', // <-- Reset device_type
+        device_type: 'EFPP',
       });
-      fetchTaxpayers();
+      setFieldsReadOnly(false);
+      setSelectedManager('');
+      // Optionally show a success message here
     } catch (error) {
-      console.error('Error creating station:', error);
+      console.error('Error registering device:', error);
+      alert("Failed to register device.");
     }
   };
 
@@ -196,18 +211,16 @@ const RegisterEwura: React.FC = () => {
         setNewStation({
           ...newStation,
           efd_serial: auto.efdSerialNumber || '',
-          receipt_code: auto.receiptCode || '',
+          receipt_code: '', // clear receipt_code for manual entry
           ewura_license: auto.ewuraLicenseNo || '',
-          phone: auto.contactPersonPhone|| '',
-          email: auto.contactPersonEmailAddress || '',
+          phone: auto.contactPersonPhone || '',
           ward: auto.wardName || '',
           region: auto.regionName || '',
           district: auto.districtName || '',
-          station_location: auto.stationLocation || '',   
-        vrn: auto.operatorVrn || '',
-          tin: auto.operatorTin|| '',
+          station_location: auto.streetName || '',
+          vrn: auto.operatorVrn || '',
+          tin: auto.operatorTin || '',
           brand_name: auto.retailStationName || '',
-          // ...add more fields as needed
         });
         setFieldsReadOnly(true);
       }
@@ -216,21 +229,21 @@ const RegisterEwura: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedManager) return;
-    try {
-      await apiService.registerWithManager(selectedManager, {
-        tranId: '1', // or your value
-        brandName: newStation.brand_name,
-        receiptCode: newStation.receipt_code,
-        // ...add other required fields
-      });
-      // Handle success (e.g., show message, reset form)
-    } catch (error) {
-      console.error('Error submitting:', error);
-    }
-  };
+
+  //   e.preventDefault();
+  //   if (!selectedManager) return;
+  //   try {
+  //     await apiService.registerWithManager(selectedManager, {
+  //       tranId: '1', // or your value
+  //       brandName: newStation.brand_name,
+  //       receiptCode: newStation.receipt_code,
+  //       // ...add other required fields
+  //     });
+  //     // Handle success (e.g., show message, reset form)
+  //   } catch (error) {
+  //     console.error('Error submitting:', error);
+  //   }
+  // };
 
   const filteredTaxpayers = taxpayers.filter(taxpayer =>
     (taxpayer.tin?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -621,7 +634,7 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={
-               newStation.vrn || newStation.operatorVrn
+               newStation.vrn || newStation.vrn
                       }
                     readOnly={fieldsReadOnly}
                     onChange={(e) => setNewStation({ ...newStation, vrn: e.target.value })}
@@ -651,7 +664,7 @@ const RegisterEwura: React.FC = () => {
                   <input
                     type="text"
                     value={newStation.receipt_code}
-                    readOnly={fieldsReadOnly}
+                    
                     onChange={(e) => setNewStation({ ...newStation, receipt_code: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
@@ -672,47 +685,8 @@ const RegisterEwura: React.FC = () => {
                   />
                 </div>
 
-                
-{/* 
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Password <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={newStation.password}
-                    onChange={(e) => setNewStation({ ...newStation, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                    required
-                  />
-                </div> */}
-
-                {/* Device Type Selection */}
-               
-
-                {/* Conditional Fields Based on Device Type */}
-                {newStation.device_type === 'EFPP' && (
-                  <>
-                    
-                  </>
-                )}
-
-                {newStation.device_type === 'VFD' && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        VFD Model Number <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={newStation.vfd_model || ''}
-                        onChange={(e) => setNewStation({ ...newStation, vfd_model: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                        required
-                      />
-                    </div>
-                  </>
-                )}
+    
+              
               </div>
             </div>
 

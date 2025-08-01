@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import apiService from "../services/api";
-import { Plus, X, Search as SearchIcon, Pencil, CheckCircle2, XCircle } from "lucide-react";
+import { Plus, X, Search as SearchIcon, Pencil } from "lucide-react";
 
 interface Taxpayer {
   id?: string;
@@ -15,6 +15,7 @@ interface Taxpayer {
   address: string;
   phone: string;
   email: string;
+  streetId:string;
   isActive?: boolean; // <-- Add this line
 }
 
@@ -25,6 +26,8 @@ interface Station {
   taxpayerId: string;
   regionId: string;
   districtId: string;
+  streetId?: string; // <-- use camelCase
+  wardName?: string; // <-- use camelCase
   wardId: string;
   address: string;
   ewuraLicenseNo: string;
@@ -48,10 +51,10 @@ export default function Stations() {
     regionId: "",
     districtId: "",
     wardId: "",
+    streetId: "", // <-- always include this
     address: "",
     ewuraLicenseNo: "",
     email: "",
-    // operationalHours: {}, // Add if needed
   });
   const [regionSearch, setRegionSearch] = useState("");
   const [districtSearch, setDistrictSearch] = useState("");
@@ -59,6 +62,8 @@ export default function Stations() {
   // Add a taxpayer search state
   const [taxpayerSearch, setTaxpayerSearch] = useState("");
   const [stations, setStations] = useState<Station[]>([]);
+  const [streets, setStreets] = useState<any[]>([]);
+  const [streetSearch, setStreetSearch] = useState("");
 
   // Fetch all data
   useEffect(() => {
@@ -66,8 +71,14 @@ export default function Stations() {
     fetchRegions();
   }, []);
 
-  
-  
+  useEffect(() => {
+    const fetchTaxpayers = async () => {
+      const res = await apiService.getTaxpayers({ search: taxpayerSearch });
+      setTaxpayers(res.data?.taxpayers || []);
+    };
+    fetchTaxpayers();
+  }, [taxpayerSearch]);
+
   const fetchRegions = async () => {
     const res = await apiService.getRegions();
     setRegions(res.data?.regions || []);
@@ -99,10 +110,12 @@ export default function Stations() {
       id: s.id,
       code: s.code,
       name: s.name,
-      taxpayerId: s.taxpayer_name,
+      taxpayerId: s.taxpayer_id, // use the actual taxpayer id, not name
       regionId: s.region_id,
       districtId: s.district_id,
       wardId: s.ward_id,
+      streetId: s.street_id || "", // <-- add this
+      wardName: s.ward_name,
       address: s.address,
       ewuraLicenseNo: s.ewura_license_no,
       operationalHours: s.operational_hours,
@@ -137,6 +150,19 @@ export default function Stations() {
     // eslint-disable-next-line
   }, [form.districtId]);
 
+  // Fetch streets when ward changes
+  useEffect(() => {
+    if (form.wardId) {
+      apiService.getStreets({ wardId: form.wardId }).then(res => {
+        setStreets(res.data?.streets || []);
+      });
+    } else {
+      setStreets([]);
+    }
+    setForm(f => ({ ...f, streetId: "" }));
+    // eslint-disable-next-line
+  }, [form.wardId]);
+
   const handleSearch = async () => {
     if (!search) {
       fetchStations();
@@ -160,42 +186,78 @@ export default function Stations() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const openModal = (item?: Taxpayer) => {
-    setEditItem(item || null);
-    if (item) {
-      setForm({
-        code: "", // You may want to fetch the station code if available
-        name: item.businessName || "",
-        taxpayerId: item.id || "",
-        regionId: item.regionId || "",
-        districtId: item.districtId || "",
-        wardId: item.wardId || "",
-        address: item.address || "",
-        ewuraLicenseNo: "", // You may want to fetch the station license if available
-        email: item.email || "",
-      });
-    } else {
-      setForm({
-        code: "",
-        name: "",
-        taxpayerId: "",
-        regionId: "",
-        districtId: "",
-        wardId: "",
-        address: "",
-        ewuraLicenseNo: "",
-        email: "",
-      });
-    }
-    setShowModal(true);
-  };
+  const openModal = (item?: Taxpayer | Station) => {
+      setEditItem(item && "tin" in item ? item : null);
+      if (item) {
+        if ("tin" in item) {
+          // Taxpayer
+          setForm({
+            code: "",
+            name: item.businessName || "",
+            taxpayerId: item.id || "",
+            regionId: item.regionId || "",
+            districtId: item.districtId || "",
+            wardId: item.wardId || "",
+            address: item.address || "",
+            ewuraLicenseNo: "",
+            email: item.email || "",
+          });
+        } else {
+          // Station
+          setForm({
+            code: item.code || "",
+            name: item.name || "",
+            taxpayerId: item.taxpayerId || "",
+            regionId: item.regionId || "",
+            districtId: item.districtId || "",
+            wardId: item.wardId || "",
+            streetId: item.streetId || "", // <-- use snake_case here
+            address: item.address || "",
+            ewuraLicenseNo: item.ewuraLicenseNo || "",
+            email: item.email || "",
+          });
+        }
+      } else {
+        setForm({
+          code: "",
+          name: "",
+          taxpayerId: "",
+          regionId: "",
+          districtId: "",
+          wardId: "",
+          address: "",
+          ewuraLicenseNo: "",
+          email: "",
+          streetId: "", // <-- add this
+        });
+      }
+      setShowModal(true);
+    };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.streetId) {
+      alert("Please select a valid street.");
+      return;
+    }
+    const payload = {
+      code: form.code,
+      name: form.name,
+      taxpayerId: form.taxpayerId,
+      regionId: form.regionId,
+      districtId: form.districtId,
+      wardId: form.wardId,
+      streetId: form.streetId, // <-- always send this
+      address: form.address,
+      ewuraLicenseNo: form.ewuraLicenseNo,
+      email: form.email,
+    };
+
+ console.log("Submitting payload:", payload);
     if (editItem && editItem.id) {
-      await apiService.updateStation(editItem.id, form);
+      await apiService.updateStation(editItem.id, payload);
     } else {
-      await apiService.createStation(form);
+      await apiService.createStation(payload);
     }
     setShowModal(false);
     setEditItem(null);
@@ -206,6 +268,7 @@ export default function Stations() {
       regionId: "",
       districtId: "",
       wardId: "",
+      streetId: "", // <-- reset this too
       address: "",
       ewuraLicenseNo: "",
       email: "",
@@ -222,6 +285,9 @@ export default function Stations() {
   );
   const filteredWards = wards.filter(w =>
     w.name.toLowerCase().includes(wardSearch.toLowerCase())
+  );
+  const filteredStreets = streets.filter(s =>
+    s.name.toLowerCase().includes(streetSearch.toLowerCase())
   );
   // Filter stations based on search input
   const filteredStations = stations.filter(
@@ -301,17 +367,21 @@ export default function Stations() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl relative shadow-lg">
-            <button
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-              onClick={() => setShowModal(false)}
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <h3 className="text-2xl font-bold mb-4">
-              {editItem ? "Edit" : "Add"} Station
-            </h3>
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="bg-white rounded-lg w-full max-w-2xl relative shadow-lg flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b px-6 py-4 sticky top-0 bg-white z-10 rounded-t-lg">
+              <h3 className="text-2xl font-bold">
+                {editItem ? "Edit" : "Add"} Station
+              </h3>
+              <button
+                className="text-gray-500 hover:text-gray-700"
+                onClick={() => setShowModal(false)}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {/* Modal Body (scrollable) */}
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-6 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <input
                   name="code"
@@ -411,6 +481,57 @@ export default function Stations() {
                   </select>
                 </div>
 
+                {/* Street search and select */}
+                <div className="flex flex-col">
+                  <input
+                    type="text"
+                    placeholder="Search Street"
+                    value={streetSearch}
+                    onChange={e => setStreetSearch(e.target.value)}
+                    className="border px-4 py-3 rounded mb-2 text-lg"
+                    disabled={!form.wardId}
+                  />
+                  <select
+                    name="streetId"
+                    value={form.streetId || ""}
+                    onChange={handleInputChange}
+                    className="border px-4 py-3 rounded text-lg"
+                    required
+                    disabled={!form.wardId}
+                  >
+                    <option value="">Select Street</option>
+                    {streets
+                      .filter(s => s.name.toLowerCase().includes(streetSearch.toLowerCase()))
+                      .map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
+                  </select>
+                </div>
+
+                <div className="flex flex-col col-span-2">
+                  <input
+                    type="text"
+                    placeholder="Search Taxpayer"
+                    value={taxpayerSearch}
+                    onChange={e => setTaxpayerSearch(e.target.value)}
+                    className="border px-4 py-3 rounded mb-2 text-lg"
+                  />
+                  <select
+                    name="taxpayerId"
+                    value={form.taxpayerId}
+                    onChange={handleInputChange}
+                    className="border px-4 py-3 rounded text-lg"
+                    required
+                  >
+                    <option value="">Select Taxpayer</option>
+                    {taxpayers.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.business_name } 
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <input
                   name="address"
                   placeholder="Address"
@@ -421,12 +542,15 @@ export default function Stations() {
                 />
               </div>
 
-              <button
-                type="submit"
-                className="bg-red-600 text-white px-6 py-3 rounded hover:bg-red-700 w-full text-lg font-semibold mt-4"
-              >
-                {editItem ? "Update" : "Create"}
-              </button>
+              {/* Modal Footer with Register/Update Button */}
+              <div className="pt-4 border-t mt-4 flex justify-end sticky bottom-0 bg-white z-10">
+                <button
+                  type="submit"
+                  className="bg-red-600 text-white px-6 py-3 rounded hover:bg-red-700 text-lg font-semibold w-full"
+                >
+                  {editItem ? "Update" : "Create"}
+                </button>
+              </div>
             </form>
           </div>
         </div>

@@ -3,7 +3,7 @@ import apiService from "../services/api";
 import { Plus, X, Search as SearchIcon, Pencil } from "lucide-react";
 import DataTable from "react-data-table-component";
 
-const TABS = ["Regions", "Districts", "Wards"] as const;
+const TABS = ["Regions", "Districts", "Wards", "Streets"] as const;
 type Tab = typeof TABS[number];
 
 export default function Locations() {
@@ -14,6 +14,7 @@ export default function Locations() {
   const [regions, setRegions] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
+  const [streets, setStreets] = useState<any[]>([]);
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -32,6 +33,7 @@ export default function Locations() {
     fetchRegions();
     fetchDistricts();
     fetchWards();
+    fetchStreets();
   }, []);
 
   const fetchCountries = async () => {
@@ -50,6 +52,18 @@ export default function Locations() {
     const res = await apiService.getWards();
     setWards(res.data?.wards || []);
   };
+  // Fetch all streets
+  const fetchStreets = async () => {
+    const res = await apiService.getStreets();
+    console.log("Fetched streets:", res.data?.streets);
+    setStreets(res.data?.streets || []);
+  };
+
+  // Fetch streets by ward
+  const fetchStreetsByWard = async (wardId: string) => {
+    const res = await apiService.getStreets({ wardId });
+    setStreets(res.data?.streets || []);
+  };
 
   // Open modal for add/edit
   const openModal = (type: Tab, item: any = null) => {
@@ -59,7 +73,6 @@ export default function Locations() {
     if (item) {
       setForm(item);
     } else {
-      // Default countryId to Tanzania if available
       let defaultForm: any = {};
       if (type === "Regions") {
         const tanzania = countries.find((c) => c.name?.toLowerCase() === "tanzania" || c.code === "TZ");
@@ -103,6 +116,19 @@ export default function Locations() {
         await apiService.createWard({ code: form.code, name: form.name, districtId: form.districtId });
       }
       fetchWards();
+    }
+
+    if (modalType === "Streets") {
+      if (editItem) {
+        await apiService.updateStreet(editItem.id, { name: form.name });
+      } else {
+        await apiService.createStreet({
+          code: form.code,
+          name: form.name,
+          wardId: form.wardId,
+        });
+      }
+      fetchStreets();
     }
 
     setShowModal(false);
@@ -168,6 +194,27 @@ export default function Locations() {
           <button
             className="inline-flex items-center bg-white text-gray-800 px-3 py-1.5 rounded-md shadow hover:shadow-lg border border-gray-200 hover:bg-gray-50 transition focus:outline-none"
             onClick={() => openModal("Wards", row)}
+            title="Edit"
+          >
+            <Pencil className="w-4 h-4 text-gray-700" />
+          </button>
+        ),
+      },
+    ],
+    Streets: [
+      { name: "Code", selector: (row: any) => row.code, sortable: true },
+      { name: "Name", selector: (row: any) => row.name, sortable: true },
+      {
+        name: "Ward",
+        selector: (row: any) => row.ward_name || wards.find((w) => w.id === row.ward_id || w.id === row.wardId)?.name || "",
+        sortable: true,
+      },
+      {
+        name: "Actions",
+        cell: (row: any) => (
+          <button
+            className="inline-flex items-center bg-white text-gray-800 px-3 py-1.5 rounded-md shadow hover:shadow-lg border border-gray-200 hover:bg-gray-50 transition focus:outline-none"
+            onClick={() => openModal("Streets", row)}
             title="Edit"
           >
             <Pencil className="w-4 h-4 text-gray-700" />
@@ -326,6 +373,55 @@ export default function Locations() {
         </>
       );
     }
+    if (modalType === "Streets") {
+      return (
+        <>
+          {!editItem && (
+            <div>
+              <label className="block text-sm mb-1">Code</label>
+              <input
+                name="code"
+                value={form.code || ""}
+                onChange={handleChange}
+                className="w-full border px-3 py-2 rounded mb-2"
+                placeholder="Street Code"
+                required
+              />
+            </div>
+          )}
+          <div>
+            <label className="block text-sm mb-1">Name</label>
+            <input
+              name="name"
+              value={form.name || ""}
+              onChange={handleChange}
+              className="w-full border px-3 py-2 rounded mb-2"
+              placeholder="Street Name"
+              required
+            />
+          </div>
+          {!editItem && (
+            <div>
+              <label className="block text-sm mb-1">Ward</label>
+              <select
+                name="wardId"
+                value={form.wardId || ""}
+                onChange={handleChange}
+                className="w-full border px-3 py-2 rounded"
+                required
+              >
+                <option value="">Select Ward</option>
+                {wards.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </>
+      );
+    }
     return null;
   };
 
@@ -348,6 +444,12 @@ export default function Locations() {
         w.code?.toLowerCase().includes(search.toLowerCase()) ||
         w.name?.toLowerCase().includes(search.toLowerCase()) ||
         (districts.find((d) => d.id === w.districtId)?.name?.toLowerCase() || "").includes(search.toLowerCase())
+    ),
+    Streets: streets.filter(
+      (s) =>
+        s.code?.toLowerCase().includes(search.toLowerCase()) ||
+        s.name?.toLowerCase().includes(search.toLowerCase()) ||
+        (wards.find((w) => w.id === s.wardId)?.name?.toLowerCase() || "").includes(search.toLowerCase())
     ),
   };
 

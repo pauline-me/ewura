@@ -99,6 +99,12 @@ const Users: React.FC = () => {
   }, []);
 
   const handleCreateUser = async () => {
+    const deviceSerialPattern = /^[0-9]{2}TZ[0-9]{6,}$/;
+    if (!deviceSerialPattern.test(newUser.deviceSerial)) {
+      alert('Device Serial must be in the format 02TZ followed by at least 6 digits, e.g. 02TZ994528');
+      return;
+    }
+
     try {
       await apiService.createUser({
         deviceSerial: newUser.deviceSerial,
@@ -130,23 +136,21 @@ const Users: React.FC = () => {
   };
 
   const handleUpdateUser = async () => {
-    if (!editingUser) return;
-
-    // Build update payload
-    const updatePayload: any = {
-      firstName: newUser.firstName,
-      lastName: newUser.lastName,
-      phone: newUser.phone,
-      email: newUser.email,
-    };
-
-    // Only include password if provided
-    if (newUser.password && newUser.password.trim() !== '') {
-      updatePayload.password = newUser.password;
+    if (!newUser.stationId) {
+      alert("Station selection is required.");
+      return;
     }
 
+    // Build payload
+    const payload = {
+      ...newUser,
+      stationId: newUser.stationId, // must be a valid station ID
+      // Only include password if provided
+      ...(newUser.password ? { password: newUser.password } : {}),
+    };
+
     try {
-      await apiService.updateUser(editingUser.id, updatePayload);
+      await apiService.updateUser(editingUser.id, payload);
       setShowUserModal(false);
       setEditingUser(null);
       setNewUser({
@@ -199,18 +203,18 @@ const Users: React.FC = () => {
   };
 
   const openEditModal = (user: UserData) => {
+    setEditingUser(user);
     setNewUser({
-      deviceSerial: '', // Not editable on update
-      email: user.email,
-      username: '',     // Not editable on update
-      password: '',     // Not editable on update
-      firstName: user.first_name,
-      lastName: user.last_name,
-      phone: user.phone,
-      roleCode: user.role_code || '', // Add role_name from user or empty string
-      stationId: '', // Add default value for stationId
+      deviceSerial: user.device_serial || '',
+      email: user.email || '',
+      username: user.username || '',
+      password: '',
+      firstName: user.first_name || '',
+      lastName: user.last_name || '',
+      phone: user.phone || '',
+      roleCode: user.role_code || '',
+      stationId: user.station_id || '', // if you have station_id in user
     });
-  
     setShowUserModal(true);
   };
 
@@ -394,9 +398,13 @@ const Users: React.FC = () => {
                       <input
                         type="text"
                         value={newUser.deviceSerial}
+                        readOnly={!!editingUser}
                         onChange={(e) => setNewUser({ ...newUser, deviceSerial: e.target.value })}
-                        placeholder="e.g. ADV-MGR-001"
+                        placeholder="e.g. 02TZ994528"
+                        pattern="^[0-9]{2}TZ[0-9]{6,}$"
+                        title="Format: 02TZ followed by at least 6 digits"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
+                        required
                       />
                     </div>
                     <div>
@@ -406,6 +414,7 @@ const Users: React.FC = () => {
                       <input
                         type="text"
                         value={newUser.username}
+                        readOnly={!!editingUser}
                         onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
                         placeholder="Enter username"
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
@@ -514,6 +523,27 @@ const Users: React.FC = () => {
                     />
                   </div>
                 )}
+
+                {/* Station selection - always show the select field */}
+                <div>
+                  <label className="block text-sm font-medium text-black mb-1">
+                    Station
+                  </label>
+                  <select
+                    name="stationId"
+                    value={newUser.stationId || ""}
+                    onChange={e => setNewUser({ ...newUser, stationId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                  >
+                    <option value="">Select Station</option>
+                    {stations.map(station => (
+                      <option key={station.id} value={station.id}>
+                        {station.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 

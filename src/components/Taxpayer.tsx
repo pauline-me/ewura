@@ -12,6 +12,8 @@ interface Taxpayer {
   regionId: string;
   districtId: string;
   wardId: string;
+  street_id:string,
+  streetId: string; // <-- add this
   address: string;
   phone: string;
   email: string;
@@ -24,6 +26,7 @@ export default function TaxpayerComponent() {
   const [regions, setRegions] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
+  const [streets, setStreets] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<Taxpayer | null>(null);
@@ -36,6 +39,8 @@ export default function TaxpayerComponent() {
     regionId: "",
     districtId: "",
     wardId: "",
+    street_id: "",
+    streetId: "", // <-- add this
     address: "",
     phone: "",
     email: "",
@@ -43,12 +48,16 @@ export default function TaxpayerComponent() {
   const [regionSearch, setRegionSearch] = useState("");
   const [districtSearch, setDistrictSearch] = useState("");
   const [wardSearch, setWardSearch] = useState("");
+  const [streetSearch, setStreetSearch] = useState("");
+  // const [street, setStreet] = useState<any>(null);
+  // const [loading, setLoading] = useState(false);
 
   // Fetch all data
   useEffect(() => {
     fetchTaxpayers();
     fetchBusinessTypes();
     fetchRegions();
+ 
   }, []);
 
   const fetchTaxpayers = async () => {
@@ -100,6 +109,18 @@ export default function TaxpayerComponent() {
     setWards(res.data?.wards || []);
   };
 
+  // const fetchStreet = async (streetId: string) => {
+  //   setLoading(true);
+  //   try {
+  //     const res = await apiService.getStreet(streetId);
+  //     setStreet(res.data || res); // Adjust depending on your API response structure
+  //   } catch (error) {
+  //     setStreet(null);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
   // Update address when region, district, or ward changes
   useEffect(() => {
     const region = regions.find(r => r.id === form.regionId)?.name || "";
@@ -125,6 +146,18 @@ export default function TaxpayerComponent() {
     // eslint-disable-next-line
   }, [form.districtId]);
 
+  useEffect(() => {
+    if (form.wardId) {
+      apiService.getStreets({ wardId: form.wardId }).then(res => {
+        setStreets(res.data?.streets || []);
+      });
+    } else {
+      setStreets([]);
+    }
+    setForm(f => ({ ...f, streetId: "" }));
+    // eslint-disable-next-line
+  }, [form.wardId]);
+
   const handleSearch = async () => {
     if (!search) {
       fetchTaxpayers();
@@ -145,7 +178,12 @@ export default function TaxpayerComponent() {
   }, [search]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === "streetId") {
+      setForm({ ...form, streetId: value, street_id: value }); // keep both in sync
+    } else {
+      setForm({ ...form, [name]: value });
+    }
   };
 
   const openModal = (item?: Taxpayer) => {
@@ -160,9 +198,11 @@ export default function TaxpayerComponent() {
         regionId: "",
         districtId: "",
         wardId: "",
+        streetId: "", // <-- add this
         address: "",
         phone: "",
         email: "",
+        street_id: "",
       }
     );
     setShowModal(true);
@@ -170,10 +210,11 @@ export default function TaxpayerComponent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = { ...form, street_id: form.streetId }; // ensure street_id is set
     if (editItem && editItem.id) {
-      await apiService.updateTaxpayer(editItem.id, form);
+      await apiService.updateTaxpayer(editItem.id, payload);
     } else {
-      await apiService.createTaxpayer(form);
+      await apiService.createTaxpayer(payload);
     }
     setShowModal(false);
     setEditItem(null);
@@ -186,6 +227,8 @@ export default function TaxpayerComponent() {
       regionId: "",
       districtId: "",
       wardId: "",
+      streetId: "",
+      street_id: "",
       address: "",
       phone: "",
       email: "",
@@ -430,6 +473,33 @@ export default function TaxpayerComponent() {
                     {filteredWards.map(w => (
                       <option key={w.id} value={w.id}>{w.name}</option>
                     ))}
+                  </select>
+                </div>
+
+                {/* Street search and select */}
+                <div className="flex flex-col">
+                  <input
+                    type="text"
+                    placeholder="Search Street"
+                    value={streetSearch}
+                    onChange={e => setStreetSearch(e.target.value)}
+                    className="border px-3 py-2 rounded mb-1"
+                    disabled={!form.wardId}
+                  />
+                  <select
+                    name="streetId"
+                    value={form.streetId || ""}
+                    onChange={handleInputChange}
+                    className="border px-3 py-2 rounded"
+                    required
+                    disabled={!form.wardId}
+                  >
+                    <option value="">Select Street</option>
+                    {streets
+                      .filter(s => s.name.toLowerCase().includes(streetSearch.toLowerCase()))
+                      .map(s => (
+                        <option key={s.id} value={s.id}>{s.name}</option>
+                      ))}
                   </select>
                 </div>
 
