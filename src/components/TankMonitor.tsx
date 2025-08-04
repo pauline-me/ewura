@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Fuel, Thermometer, Droplets, Activity, AlertTriangle } from 'lucide-react';
+import { Fuel, Thermometer, Droplets, Activity, AlertTriangle, Play, Pause, RefreshCw } from 'lucide-react';
 import apiService from '../services/api';
+import { io, Socket } from 'socket.io-client';
 
 interface Tank {
   id: string;
@@ -18,32 +19,132 @@ interface Tank {
   };
 }
 
+const WS_URL = 'http://192.168.1.104:3001';
+
 const TankMonitor: React.FC = () => {
   const [tanks, setTanks] = useState<Tank[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTank, setSelectedTank] = useState<Tank | null>(null);
+  const [atgStatus, setAtgStatus] = useState<string>('unknown');
+  const [socket, setSocket] = useState<Socket | null>(null);
 
   useEffect(() => {
     fetchTanks();
-    const interval = setInterval(fetchTanks, 30000); // Refresh every 30 seconds
+    fetchATGStatus();
+
+    // Setup polling
+    const interval = setInterval(fetchTanks, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Setup WebSocket for live tank data
+  useEffect(() => {
+    const s = io(WS_URL, {
+      auth: { token: localStorage.getItem('token') },
+    });
+    setSocket(s);
+
+    s.on('tankData', (data: any) => {
+      // If data is an object with numeric keys, convert to array
+      const tanksArray = Array.isArray(data) ? data : Object.values(data);
+
+      setTanks(
+        tanksArray.map((tank: any) => ({
+          id: tank.tankNumber || tank.tank_number || tank.id,
+          tank_number: tank.tankNumber || tank.tank_number,
+          name: tank.name || `Tank ${tank.tankNumber || tank.tank_number}`,
+          fuel_type: tank.fuel_type || tank.fuelType || 'unknown',
+          capacity: Number(tank.totalVolume || tank.total_volume || tank.capacity || 0),
+          current_volume: Number(tank.oilVolume || tank.oil_volume || tank.current_volume || 0),
+          water_level: Number(tank.waterHeight || tank.water_height || tank.water_level || 0),
+          temperature: Number(tank.temperature || 0),
+          pressure: Number(tank.pressure || 0),
+          status: tank.status || 'unknown',
+          station: {
+            name: tank.stationName || tank.station_name || 'Unknown',
+          },
+        }))
+      );
+    });
+
+    return () => {
+      s.disconnect();
+    };
   }, []);
 
   const fetchTanks = async () => {
     try {
       const data = await apiService.getTanks();
-      // Convert string values to numbers
-      const formattedData = data.map(tank => ({
+      // Convert object with numeric keys to array if needed
+      const tanksArray = Array.isArray(data) ? data : Object.values(data);
+      const formattedData = tanksArray.map((tank: any) => ({
         ...tank,
-        current_volume: Number(tank.current_volume),
-        capacity: Number(tank.capacity),
-        water_level: Number(tank.water_level),
-        temperature: Number(tank.temperature),
-        pressure: Number(tank.pressure)
+        current_volume: Number(tank.oilVolume || tank.oil_volume || tank.current_volume || 0),
+        capacity: Number(tank.totalVolume || tank.total_volume || tank.capacity || 0),
+        water_level: Number(tank.waterHeight || tank.water_height || tank.water_level || 0),
+        temperature: Number(tank.temperature || 0),
+        pressure: Number(tank.pressure || 0),
+        id: tank.tankNumber || tank.tank_number || tank.id,
+        tank_number: tank.tankNumber || tank.tank_number,
+        name: tank.name || `Tank ${tank.tankNumber || tank.tank_number}`,
+        fuel_type: tank.fuel_type || tank.fuelType || 'unknown',
+        status: tank.status || 'unknown',
+        station: {
+          name: tank.stationName || tank.station_name || 'Unknown',
+        },
       }));
       setTanks(formattedData);
     } catch (error) {
       console.error('Error fetching tanks:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchATGStatus = async () => {
+    try {
+      const res = await apiService.getATGStatus();
+      setAtgStatus(res.status || 'unknown');
+    } catch {
+      setAtgStatus('unknown');
+    }
+  };
+
+  const handleStartATG = async () => {
+    await apiService.startATGMonitoring();
+    fetchATGStatus();
+  };
+
+  const handleStopATG = async () => {
+    await apiService.stopATGMonitoring();
+    fetchATGStatus();
+  };
+
+  const handleRefreshCurrentData = async () => {
+    setLoading(true);
+    try {
+      const data = await apiService.getCurrentTankData();
+      const tanksArray = Array.isArray(data) ? data : Object.values(data);
+      setTanks(
+        tanksArray.map((tank: any) => ({
+          ...tank,
+          current_volume: Number(tank.oilVolume || tank.oil_volume || tank.current_volume || 0),
+          capacity: Number(tank.totalVolume || tank.total_volume || tank.capacity || 0),
+          water_level: Number(tank.waterHeight || tank.water_height || tank.water_level || 0),
+          temperature: Number(tank.temperature || 0),
+          pressure: Number(tank.pressure || 0),
+          id: tank.tankNumber || tank.tank_number || tank.id,
+          tank_number: tank.tankNumber || tank.tank_number,
+          name: tank.name || `Tank ${tank.tankNumber || tank.tank_number}`,
+          fuel_type: tank.fuel_type || tank.fuelType || 'unknown',
+          status: tank.status || 'unknown',
+          station: {
+            name: tank.stationName || tank.station_name || 'Unknown',
+          },
+        }))
+      );
+    } catch (error) {
+      console.error('Error fetching current tank data:', error);
     } finally {
       setLoading(false);
     }
@@ -91,6 +192,31 @@ const TankMonitor: React.FC = () => {
           <Activity className="w-4 h-4" />
           <span>Real-time monitoring</span>
         </div>
+      </div>
+
+      {/* ATG Controls */}
+      <div className="flex items-center space-x-4 mb-4">
+        <button
+          onClick={handleStartATG}
+          className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+        >
+          <Play className="w-4 h-4 mr-2" /> Start ATG
+        </button>
+        <button
+          onClick={handleStopATG}
+          className="flex items-center px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          <Pause className="w-4 h-4 mr-2" /> Stop ATG
+        </button>
+        <button
+          onClick={handleRefreshCurrentData}
+          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          <RefreshCw className="w-4 h-4 mr-2" /> Refresh Data
+        </button>
+        <span className="ml-4 text-sm">
+          <b>ATG Status:</b> <span className="uppercase">{atgStatus}</span>
+        </span>
       </div>
 
       {/* Tank Grid */}

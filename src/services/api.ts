@@ -504,6 +504,28 @@ class ApiService {
       body: JSON.stringify(streetData),
     });
   }
+
+  // ATG Tank Monitoring Methods
+
+  async startATGMonitoring() {
+    return this.request('/tanks/atg/start', {
+      method: 'POST',
+    });
+  }
+
+  async stopATGMonitoring() {
+    return this.request('/tanks/atg/stop', {
+      method: 'POST',
+    });
+  }
+
+  async getATGStatus() {
+    return this.request('/tanks/atg/status');
+  }
+
+  async getCurrentTankData() {
+    return this.request('/tanks/current/data');
+  }
 }
 
 export default new ApiService();

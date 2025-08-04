@@ -100,6 +100,7 @@ const RegisterEwura: React.FC = () => {
     receipt_code: '',
     ewura_license: '',
     phone: '',
+    email: '',
     tin: '',
     ward: '',
     region: '',
@@ -182,6 +183,7 @@ const RegisterEwura: React.FC = () => {
         receipt_code: '',
         ewura_license: '',
         phone: '',
+        email: '',
         tin: '',
         ward: '',
         region: '',
@@ -214,6 +216,7 @@ const RegisterEwura: React.FC = () => {
           receipt_code: '', // clear receipt_code for manual entry
           ewura_license: auto.ewuraLicenseNo || '',
           phone: auto.contactPersonPhone || '',
+          email: auto.contactPersonEmailAddress || '',
           ward: auto.wardName || '',
           region: auto.regionName || '',
           district: auto.districtName || '',
