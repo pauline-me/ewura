@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Search, Plus, Edit, MoreHorizontal, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Plus, MoreHorizontal, X } from 'lucide-react';
+import apiService from '../services/api';
 
 interface Tank {
-  id: number;
+  id: string;
   tankNo: string;
   description: string;
   product: string;
@@ -21,66 +22,118 @@ const Tanks: React.FC = () => {
     product: ''
   });
 
-  const tanks: Tank[] = [
-    {
-      id: 1,
-      tankNo: '4',
-      description: 'Tank 4',
-      product: 'Diesel',
-      capacity: 100,
-      waterHeight: 0,
-      fuelTemperature: 0
-    },
-    {
-      id: 2,
-      tankNo: '3',
-      description: 'Tank 3',
-      product: 'Premium',
-      capacity: 100,
-      waterHeight: 0,
-      fuelTemperature: 0
-    },
-    {
-      id: 3,
-      tankNo: '2',
-      description: 'Tank 2',
-      product: 'ULEADED',
-      capacity: 100,
-      waterHeight: 51.54,
-      fuelTemperature: 25.19
-    },
-    {
-      id: 4,
-      tankNo: '1',
-      description: 'Tank 1',
-      product: 'DIESEL',
-      capacity: 100,
-      waterHeight: 46.77,
-      fuelTemperature: 26.31
-    }
-  ];
+  // Dynamic state for tanks and readings
+  const [tanks, setTanks] = useState<Tank[]>([]);
+  const [dailySummary, setDailySummary] = useState<any[]>([]);
+  const [hourlyReadings, setHourlyReadings] = useState<any[]>([]);
+  const [periodReadings, setPeriodReadings] = useState<any[]>([]);
+  const [selectedTankId, setSelectedTankId] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [tableMode, setTableMode] = useState<'daily' | 'hourly' | 'periodic'>('daily');
 
-  const filteredTanks = tanks.filter(tank => {
-    return tank.tankNo.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // Fetch tanks and summaries on mount
+  useEffect(() => {
+    setLoading(true);
+    apiService.getTanks()
+      .then((data: any) => {
+        const tanksArray = Array.isArray(data) ? data : Object.values(data);
+        setTanks(tanksArray);
+      })
+      .catch(() => setTanks([]));
+
+    apiService.getTanksDailySummary()
+      .then((data: any) => {
+        // Fix: extract summary array from data
+        if (Array.isArray(data?.data?.summary)) {
+          setDailySummary(data.data.summary);
+        } else if (Array.isArray(data)) {
+          setDailySummary(data);
+        } else if (Array.isArray(data?.data)) {
+          setDailySummary(data.data);
+        } else {
+          setDailySummary([]);
+        }
+      })
+      .catch(() => setDailySummary([]));
+
+    apiService.getTanksHourlyReadings()
+      .then((data: any) => {
+        // Fix: extract hourlyReadings array from data
+        if (Array.isArray(data?.data?.hourlyReadings)) {
+          setHourlyReadings(data.data.hourlyReadings);
+        } else if (Array.isArray(data)) {
+          setHourlyReadings(data);
+        } else if (Array.isArray(data?.data)) {
+          setHourlyReadings(data.data);
+        } else {
+          setHourlyReadings([]);
+        }
+      })
+      .catch(() => setHourlyReadings([]));
+
+    setLoading(false);
+  }, []);
+
+  // Fetch period readings when tank or date changes
+  useEffect(() => {
+    if (
+      tableMode === 'periodic' &&
+      selectedTankId &&
+      startDate &&
+      endDate &&
+      /^[0-9a-fA-F-]{36}$/.test(selectedTankId)
+    ) {
+      setLoading(true);
+      apiService.getTankReadingsForPeriod(selectedTankId, startDate, endDate)
+        .then((data: any) => {
+          setPeriodReadings(Array.isArray(data) ? data : data.data || []);
+        })
+        .catch(() => setPeriodReadings([]))
+        .finally(() => setLoading(false));
+    } else if (tableMode === 'periodic') {
+      setPeriodReadings([]);
+    }
+  }, [tableMode, selectedTankId, startDate, endDate]);
+
+  // Table data and columns based on mode
+  let tableData: any[] = [];
+  let columns: string[] = [];
+
+  if (tableMode === 'daily') {
+    tableData = Array.isArray(dailySummary) ? dailySummary : dailySummary.data || [];
+    columns = [
+      'tank_number', 'capacity', 'avg_volume', 'min_volume', 'max_volume',
+      'avg_temperature', 'min_temperature', 'max_temperature', 'reading_count'
+    ];
+  } else if (tableMode === 'hourly') {
+    tableData = Array.isArray(hourlyReadings) ? hourlyReadings : hourlyReadings.data || [];
+    columns = [
+      'tank_number', 'hour', 'avg_volume', 'avg_temperature', 'reading_count'
+    ];
+  } else if (tableMode === 'periodic') {
+    tableData = Array.isArray(periodReadings) ? periodReadings : periodReadings.data || [];
+    columns = tableData[0] ? Object.keys(tableData[0]) : [];
+  }
+
+  // Filter tableData by tank number (case-insensitive)
+  const filteredTableData = tableData.filter(row =>
+    (row.tank_number || row.tankNo || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const rowsPerPage = 10;
+  const totalRows = filteredTableData.length;
+  const totalPages = Math.ceil(totalRows / rowsPerPage);
+  const paginatedData = filteredTableData.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
 
   const handleAddTank = () => {
-    // Handle tank addition logic here
-    console.log('Adding tank:', newTank);
+    // TODO: Implement tank creation logic here
     setShowAddModal(false);
-    setNewTank({ tankNo: '', description: '', maxVolume: '', product: '' });
-    setEditingTank(tank);
-    setNewTank({
-      tankNo: tank.tankNo,
-      description: tank.description,
-      maxVolume: tank.capacity.toString(),
-      product: tank.product
-    });
-    setShowAddModal(true);
-    if (window.confirm('Are you sure you want to delete this tank?')) {
-      // Implement delete functionality
-      console.log('Deleting tank:', id);
-    }
   };
 
   return (
@@ -111,110 +164,116 @@ const Tanks: React.FC = () => {
         </div>
       </div>
 
-      {/* Tank Table */}
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  S/N
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tank No.
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Description
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Product
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Capacity (L)
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Water Height (mm)
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Fuel Temperature (°C)
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Operate
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredTanks.map((tank, index) => (
-                <tr key={tank.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {index + 1}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {tank.tankNo}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {tank.description}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {tank.product}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {tank.capacity}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {tank.waterHeight}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {tank.fuelTemperature}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => handleEditTank(tank)}
-                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-                      >
-                        Edit
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteTank(tank.id)}
-                        className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                      <button className="text-gray-600 hover:text-gray-900">
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+      {/* Table Mode Buttons */}
+      <div className="flex items-center gap-2 mb-4">
+        <button
+          className={`px-3 py-1 rounded ${tableMode === 'daily' ? 'bg-red-600 text-white' : 'bg-gray-200'}`}
+          onClick={() => setTableMode('daily')}
+        >
+          Daily
+        </button>
+        <button
+          className={`px-3 py-1 rounded ${tableMode === 'hourly' ? 'bg-red-600 text-white' : 'bg-gray-200'}`}
+          onClick={() => setTableMode('hourly')}
+        >
+          Hourly
+        </button>
+        <button
+          className={`px-3 py-1 rounded ${tableMode === 'periodic' ? 'bg-red-600 text-white' : 'bg-gray-200'}`}
+          onClick={() => setTableMode('periodic')}
+        >
+          Periodic
+        </button>
+        {tableMode === 'periodic' && (
+          <>
+            <select
+              value={selectedTankId}
+              onChange={e => setSelectedTankId(e.target.value)}
+              className="border px-2 py-1 rounded"
+            >
+              <option value="">-- Select Tank --</option>
+              {tanks.map(tank => (
+                <option key={tank.id} value={tank.id}>{tank.tankNo}</option>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </select>
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              className="border px-2 py-1 rounded"
+            />
+            <input
+              type="date"
+              value={endDate}
+              onChange={e => setEndDate(e.target.value)}
+              className="border px-2 py-1 rounded"
+            />
+          </>
+        )}
+      </div>
 
-        {/* Pagination */}
-        <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
-          <div className="text-sm text-gray-700">
-            Total: {filteredTanks.length} records
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-gray-700">15/page</span>
-            <div className="flex items-center space-x-1">
-              <button className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">
-                1
+      {/* Dynamic Tank Readings Table */}
+      <div className="bg-white rounded-lg shadow-sm p-4 mt-6">
+        <h2 className="text-lg font-bold mb-2 capitalize">{tableMode} Tank Readings</h2>
+        <table className="w-full">
+            <thead className="bg-gray-50">
+            <tr>
+              {columns.map(col => (
+                <th key={col} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{col.replace(/_/g, ' ').toUpperCase()}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {paginatedData.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="px-6 py-4 whitespace-nowrap">No data available</td>
+              </tr>
+            ) : (
+              paginatedData.map((row, idx) => (
+                <tr key={idx}>
+                  {columns.map(col => {
+                    const value = row[col];
+                    // Format numbers with 2 decimals if possible
+                    const formatted =
+                      typeof value === 'number'
+                        ? value.toFixed(2)
+                        : (!isNaN(Number(value)) && value !== null && value !== '')
+                          ? Number(value).toFixed(2)
+                          : value;
+                    return (
+                      <td key={col} className="px-2 py-1">{formatted}</td>
+                    );
+                  })}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-gray-500">
+              Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300"
+                disabled={currentPage === 1}
+              >
+                Previous
               </button>
-              <button className="px-3 py-1 text-sm text-gray-600 hover:text-gray-900">
-                Go to
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className="px-3 py-1 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300"
+                disabled={currentPage === totalPages}
+              >
+                Next
               </button>
-              <input
-                type="number"
-                className="w-12 px-2 py-1 border border-gray-300 rounded text-sm"
-                min="1"
-                defaultValue="1"
-              />
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Add Tank Modal */}

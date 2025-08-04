@@ -174,6 +174,8 @@ const RegisterEwura: React.FC = () => {
     }
     try {
       await apiService.registerWithManager(selectedManager, {
+        tranId: '1', // or use a dynamic value if needed
+        brandName: newStation.brand_name,
         receiptCode: newStation.receipt_code,
       });
       setShowStationModal(false);

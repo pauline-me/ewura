@@ -466,10 +466,12 @@ class ApiService {
     });
   }
 
-  async registerWithManager(managerId: string, data: { receiptCode: string }) {
+  async registerWithManager(managerId: string, data: { tranId: string; brandName: string; receiptCode: string }) {
     return this.request(`/ewura/register-with-manager/${managerId}`, {
       method: "POST",
       body: JSON.stringify({
+        tranId: data.tranId,
+        brandName: data.brandName,
         receiptCode: data.receiptCode,
       }),
     });
@@ -525,6 +527,21 @@ class ApiService {
 
   async getCurrentTankData() {
     return this.request('/tanks/current/data');
+  }
+
+  // Get today's daily summary
+  async getTanksDailySummary() {
+    return this.request('/tanks/daily-summary');
+  }
+
+  // Get hourly readings for today
+  async getTanksHourlyReadings() {
+    return this.request('/tanks/hourly-readings');
+  }
+
+  // Get specific tank readings for date range
+  async getTankReadingsForPeriod(tankId: string, startDate: string, endDate: string) {
+    return this.request(`/tanks/${tankId}/readings/period?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`);
   }
 }
 
