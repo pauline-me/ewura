@@ -2,7 +2,7 @@ const API_BASE_URL = 'http://192.168.1.104:3001/api';
 
 class ApiService {
   private token: string | null = null;
-  private baseUrl = 'http://192.168.1.104:3001/api';
+  private baseUrl = 'http://192.168.1.10:3001/api';
 
   constructor() {
     // Get token on initialization
@@ -542,6 +542,57 @@ class ApiService {
   // Get specific tank readings for date range
   async getTankReadingsForPeriod(tankId: string, startDate: string, endDate: string) {
     return this.request(`/tanks/${tankId}/readings/period?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`);
+  }
+
+  // Products methods
+  async getProducts(params?: any) {
+    const query = params ? `?${new URLSearchParams(params)}` : '';
+    return this.request(`/products${query}`);
+  }
+
+  async getProduct(id: string) {
+    return this.request(`/products/${id}`);
+  }
+
+  async createProduct(productData: any) {
+    return this.request('/products', {
+      method: 'POST',
+      body: JSON.stringify(productData),
+    });
+  }
+
+  async updateProduct(id: string, productData: any) {
+    return this.request(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(productData),
+    });
+  }
+
+  async deleteProduct(id: string) {
+    return this.request(`/products/${id}`, { method: 'DELETE' });
+  }
+
+  async getProductsWithTanks() {
+    return this.request('/products/with-tanks');
+  }
+
+  // Tank assignment (assign/unassign product to tank)
+  async assignProductToTank(tankId: string, productId: string, tankName?: string) {
+    // Use product_id as per backend
+    return this.request(`/tanks/${tankId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        product_id: productId,
+        ...(tankName ? { tank_name: tankName } : {}),
+      }),
+    });
+  }
+
+  async unassignProductFromTank(tankId: string) {
+    return this.request(`/tanks/${tankId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ product_id: null }),
+    });
   }
 }
 

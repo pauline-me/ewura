@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   Home,
-  BarChart3,
   Users,
   Building,
   MapPin,
@@ -16,7 +15,6 @@ import {
   Search,
   Bell,
   User,
-  AlertTriangle,
   Wrench,
   FileText,
   Fuel
@@ -31,11 +29,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
 
-  const navigation = [
+  type NavigationItem = {
+    name: string;
+    href?: string;
+    icon: React.ElementType;
+    submenu?: { name: string; href: string }[];
+  };
+  
+  const navigation: NavigationItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
     { name: 'Users', href: '/users', icon: Users },
-     { name: 'Locations', href: '/locations', icon: MapPin },
+    { name: 'Locations', href: '/locations', icon: MapPin },
     { name: 'Taxpayer', href: '/taxpayers', icon: Users },
+    { name: 'Products', href: '/products', icon: Fuel },
     { name: 'Stations', href: '/stations', icon: MapPin },
     { name: 'Tanks', href: '/tanks', icon: Fuel },
     { name: 'Tank Monitor', href: '/tank-monitor', icon: Fuel },
@@ -44,8 +50,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     // { name: 'Alerts', href: '/alerts', icon: AlertTriangle },
     { name: 'Reports', href: '/reports', icon: FileText },
     { name: 'Maintenance', href: '/maintenance', icon: Wrench },
-    
-
     { name: 'Settings', href: '/settings', icon: Settings },
     // { name: 'Company', href: '/company', icon: Building },
     // { name: 'Operation Center', href: '/operations', icon: Activity },

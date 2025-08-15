@@ -16,7 +16,8 @@ interface Taxpayer {
   phone: string;
   email: string;
   streetId:string;
-  isActive?: boolean; // <-- Add this line
+  isActive?: boolean; 
+   device_type: 'EFPP',// <-- Add this line
 }
 
 interface Station {
@@ -26,14 +27,15 @@ interface Station {
   taxpayerId: string;
   regionId: string;
   districtId: string;
-  streetId?: string; // <-- use camelCase
-  wardName?: string; // <-- use camelCase
+  streetId?: string;
+  wardName?: string;
   wardId: string;
   address: string;
   ewuraLicenseNo: string;
-  operationalHours?: any; // Add as needed
+  operationalHours?: any;
   email?: string;
   isActive?: boolean;
+  device_type: "EFPP" | "VFD"; // <-- Add this line
 }
 
 export default function Stations() {
@@ -51,10 +53,11 @@ export default function Stations() {
     regionId: "",
     districtId: "",
     wardId: "",
-    streetId: "", // <-- always include this
+    streetId: "",
     address: "",
     ewuraLicenseNo: "",
     email: "",
+    device_type: "EFPP", // <-- Add this line (default value)
   });
   const [regionSearch, setRegionSearch] = useState("");
   const [districtSearch, setDistrictSearch] = useState("");
@@ -530,6 +533,37 @@ export default function Stations() {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* Device Type select */}
+                <div className="flex flex-col col-span-2">
+                  <label className="mb-2 font-semibold text-gray-700 text-lg">Device Type</label>
+                  <div className="flex gap-6">
+                    <label className="flex items-center cursor-pointer bg-gray-100 px-4 py-3 rounded-lg shadow hover:bg-red-50 transition">
+                      <input
+                        type="radio"
+                        name="device_type"
+                        value="EFPP"
+                        checked={form.device_type === "EFPP"}
+                        onChange={handleInputChange}
+                        className="form-radio text-red-600 mr-2"
+                        required
+                      />
+                      <span className="text-lg">EFPP</span>
+                    </label>
+                    <label className="flex items-center cursor-pointer bg-gray-100 px-4 py-3 rounded-lg shadow hover:bg-red-50 transition">
+                      <input
+                        type="radio"
+                        name="device_type"
+                        value="VFD"
+                        checked={form.device_type === "VFD"}
+                        onChange={handleInputChange}
+                        className="form-radio text-red-600 mr-2"
+                        required
+                      />
+                      <span className="text-lg">VFD</span>
+                    </label>
+                  </div>
                 </div>
 
                 <input

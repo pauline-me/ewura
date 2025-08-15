@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
@@ -17,6 +17,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Locations from './components/Locations';
 import TaxpayerComponent from './components/Taxpayer';
 import EditTaxpayer from './components/EditTaxpayer';
+import Products from './components/Products';
 
 function AppContent() {
   const { isAuthenticated } = useAuth();
@@ -40,6 +41,10 @@ function AppContent() {
         <Route 
           path="/locations" 
           element={isAuthenticated ? <Layout><Locations /></Layout> : <Navigate to="/login" />} 
+        />
+        <Route 
+          path="/products" 
+          element={isAuthenticated ? <Layout><Products /></Layout> : <Navigate to="/login" />} 
         />
         <Route 
           path="/transactions" 
